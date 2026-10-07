@@ -105,10 +105,13 @@ def run_contrast(key: str) -> dict:
 
     out = ROOT / "adapters" / key
     trainer.model.save_pretrained(out)
+    trainer.state.save_to_json(str(out / "trainer_state.json"))
 
     row = train.summarize_run(spec, TIER, targets, trainable, elapsed, generate.peak_vram_gb())
     row["final_loss"] = round(res.training_loss, 4)
     row["max_steps"] = max_steps
+    row["actual_steps"] = trainer.state.global_step
+    report.write_json(trainer.state.log_history, f"training_{key}.json", results_dir=ROOT / "results")
     row["teaches"] = spec.teaches
     report.append_row(row, results_dir=ROOT / "results")
 

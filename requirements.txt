@@ -18,15 +18,16 @@ datasets>=5,<6
 # "Found an incompatible version of torchao". Nothing in this file pulls torchao in, so
 # without an explicit pin the stale preinstalled copy wins and NB3 dies at
 # get_peft_model(). Verified on Colab 2026-08-21.
-torchao>=0.16
+torchao>=0.16; platform_system == "Linux"
 
 # apply_chat_template needs jinja2, and transformers does NOT depend on it.
 jinja2>=3.1,<4
 tokenizers>=0.22,<1
 
-# 4-bit path — used ONLY by the NB4 `qlora` contrast run. Linux/CUDA only; on macOS
-# skip it and skip that one run (the other two contrasts still work).
-bitsandbytes>=0.50,<1; platform_system == "Linux"
+# 4-bit path — used ONLY by NB4's `qlora` contrast. NVIDIA CUDA on Linux/Windows;
+# https://huggingface.co/docs/bitsandbytes/installation documents Windows wheels.
+# On macOS skip it and that one run (the other two contrasts still work).
+bitsandbytes>=0.50,<1; platform_system != "Darwin"
 
 # Tooling
 jupytext>=1.17,<2

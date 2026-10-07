@@ -120,7 +120,7 @@ print(f"epochs={EPOCHS}  ->  {STEPS} optimizer steps  (NB4 runs its contrasts at
 want_sft = train.sft_config_kwargs(
     TIER, SPEC, output_dir=str(ROOT / "adapters" / SPEC.key),
     num_train_epochs=EPOCHS, mask_mode=MASK_MODE,
-    total_steps=STEPS,
+    total_steps=STEPS, max_steps=STEPS,
 )
 sft_kwargs, dropped = train.filter_kwargs(SFTConfig, want_sft, label="SFTConfig")
 if dropped:
@@ -163,6 +163,7 @@ print(f"train {elapsed:.0f}s  final loss {result.training_loss:.4f}")
 # %%
 out = ROOT / "adapters" / SPEC.key
 trainer.model.save_pretrained(out)
+trainer.state.save_to_json(str(out / "trainer_state.json"))
 tok.save_pretrained(out)
 print("saved ->", out)
 
@@ -172,6 +173,8 @@ row["mask_mode"] = MASK_MODE
 # Record the step budget so NB5/verify can CHECK that the four runs are comparable,
 # instead of trusting that they were configured the same way.
 row["max_steps"] = STEPS
+row["actual_steps"] = trainer.state.global_step
+report.write_json(trainer.state.log_history, "training_correct.json", results_dir=ROOT / "results")
 report.append_row(row, results_dir=ROOT / "results")
 print(json.dumps(row, ensure_ascii=False, indent=2))
 

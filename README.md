@@ -83,7 +83,40 @@ make pipeline        # NB1 -> NB5, ~100-130 phút trên T4 (đo thật, xem docs
 make verify          # cổng kiểm tra trước khi nộp
 ```
 
-### Các lệnh `make`
+### Windows PowerShell (máy nộp bài này)
+
+Không cần `make`. GPU GTX 1660 Ti 6 GB dùng cấu hình `LAPTOP` và override
+`BASE_MODEL=Qwen/Qwen3.5-0.8B`; giữ batch 1, tích luỹ 8, hai epoch và toàn bộ eval.
+Thiết bị tự chọn fp16 vì GPU không hỗ trợ bf16 native.
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install torch --index-url https://download.pytorch.org/whl/cu126
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+$env:PYTHONIOENCODING = "utf-8"
+.\.venv\Scripts\python.exe scripts/verify.py --smoke
+.\.venv\Scripts\python.exe scripts/check_mask_agreement.py
+.\.venv\Scripts\python.exe scripts/record_environment.py
+.\.venv\Scripts\python.exe scripts/colab_run.py nb1 nb2 nb3 nb4 nb5
+.\.venv\Scripts\python.exe scripts/build_submission_report.py
+.\.venv\Scripts\python.exe scripts/verify.py
+.\.venv\Scripts\python.exe scripts/package_submission.py
+```
+
+Nếu chưa có `.env`, sao chép `.env.example` và đặt các giá trị trên. `bitsandbytes`
+hỗ trợ Windows CUDA theo [hướng dẫn chính thức](https://huggingface.co/docs/bitsandbytes/installation).
+NB2 lưu cả dự đoán baseline; NB5 lưu câu trả lời đầy đủ, nhãn, điểm từng mẫu và kết
+quả thắng/thua/hoà trong `results/qualitative.json` để viết report có bằng chứng.
+Report builder chỉ chạy khi đủ kết quả thật; packager kiểm tra cổng trước khi tạo
+`lab21_2A202602600.zip` ở thư mục cha. Bản ZIP chứa adapter chính, các số đo,
+source và cấu hình tái lập; không đưa cache model hay token tài khoản vào bài nộp.
+
+Nếu tải dependency/model tại máy cá nhân bị lỗi mạng, chạy
+`python scripts/build_colab_submission.py`, mở `colab/Lab21_SUBMISSION_RUN.ipynb`
+trong Colab, chọn T4 GPU và upload ZIP source vừa tạo ở thư mục cha. Chạy tuần tự
+để đo và đóng băng baseline trước train. Runner dùng cả những thay đổi chưa push.
+
+### Các lệnh `make` (Linux / Colab)
 
 ```
 make setup-cpu    Cài bản CPU (NB1 + test)

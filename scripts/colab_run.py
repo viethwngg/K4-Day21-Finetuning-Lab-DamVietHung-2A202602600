@@ -17,6 +17,10 @@ import sys
 import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "src"))
+from labkit.env import load_once
+
+load_once()
 
 STAGES = {
     "nb1": ("notebooks/01_data_and_mask.py", "data, chat template & loss mask"),
@@ -55,7 +59,7 @@ def main(argv: list[str]) -> int:
         # That silences exactly the per-batch ETA lines F-08 added to stop students
         # killing healthy runs, and reproduces the hang-that-isn't this file's docstring
         # claims to prevent. Observed: >3 minutes of stdout silence during NB2.
-        env = {**os.environ, "PYTHONUNBUFFERED": "1"}
+        env = {**os.environ, "PYTHONUNBUFFERED": "1", "PYTHONIOENCODING": "utf-8"}
         rc = subprocess.run([sys.executable, "-u", script], cwd=ROOT, env=env).returncode
         dt = time.perf_counter() - t0
         timings.append((name, dt))

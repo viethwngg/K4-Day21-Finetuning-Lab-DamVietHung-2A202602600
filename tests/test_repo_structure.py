@@ -39,6 +39,17 @@ PATH_RE = re.compile(r"`([A-Za-z0-9_./-]+\.(?:ipynb|py|md|txt|jsonl|sh))`")
 STUDENT_CREATED = {"data/CUSTOM_DATASET.md"}
 
 
+def test_shipped_corpus_checksums_survive_checkout():
+    import hashlib
+
+    refs = json.loads((ROOT / "data" / "checksums.json").read_text(encoding="utf-8"))
+    if (ROOT / "data" / "CUSTOM_DATASET.md").exists():
+        pytest.skip("custom corpus declared")
+    for name, expected in refs.items():
+        actual = hashlib.sha256((ROOT / "data" / name).read_bytes()).hexdigest()[:16]
+        assert actual == expected, f"{name}: content or line endings changed during checkout"
+
+
 @pytest.mark.parametrize("doc", ["README.md", "HARDWARE-GUIDE.md", "rubric.md"])
 def test_documented_paths_exist(doc):
     text = (ROOT / doc).read_text(encoding="utf-8")

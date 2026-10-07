@@ -1,0 +1,2 @@
+# Evaluation checksums are byte-based. Windows checkout must preserve the corpus.
+data/*.jsonl text eol=lf

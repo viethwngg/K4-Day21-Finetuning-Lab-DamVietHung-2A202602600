@@ -42,6 +42,17 @@ if frozen.get("n_target") != len(target):
         f"eval slice mismatch: baselines were frozen on {frozen.get('n_target')} target items, "
         f"this run has {len(target)}. Set EVAL_LIMIT to the same value as NB2 (or unset both)."
     )
+if frozen.get("model") != TIER.model_id:
+    raise SystemExit("base model changed after NB2; re-freeze baselines before training")
+prompt_sha = __import__("hashlib").sha256(generate.OPTIMIZED_PROMPT.encode()).hexdigest()[:16]
+if frozen.get("optimized_prompt_sha") != prompt_sha:
+    raise SystemExit("optimized prompt changed after NB2; this comparison is invalid")
+if frozen.get("n_regression") != len(regression):
+    raise SystemExit("regression eval slice differs from the frozen baseline")
+for name, expected_sha in frozen.get("eval_checksums", {}).items():
+    actual_sha = __import__("hashlib").sha256((ROOT / "data" / name).read_bytes()).hexdigest()
+    if actual_sha != expected_sha:
+        raise SystemExit(f"{name} changed after NB2; this comparison is invalid")
 print("baseline (b) target =", round(base_b.target, 3), "— đây là mốc phải vượt")
 
 # %% [markdown]
@@ -187,16 +198,39 @@ report.write_json(autopsy, "autopsy.json", results_dir=ROOT / "results")
 
 # %%
 rows = []
+baseline_path = ROOT / "results" / "baseline_predictions.json"
+baseline_rows = (json.loads(baseline_path.read_text(encoding="utf-8"))["target"]
+                 if baseline_path.exists() else None)
+if baseline_rows is not None and len(baseline_rows) != len(target):
+    raise SystemExit("saved baseline predictions differ from the current eval slice")
 for i, (p, r) in enumerate(zip(preds_ft, target)):
     s_ft = ev.triage_field_accuracy(p, r["label"])
-    rows.append({"i": i, "ticket": r["input"][:70], "ft_score": round(s_ft, 2),
-                 "ft_pred": p.replace("\n", " ")[:90]})
+    row = {"i": i, "ticket": r["input"], "label": r["label"],
+           "ft_score": s_ft, "ft_pred": p}
+    if baseline_rows is not None:
+        b = baseline_rows[i]
+        if b["ticket"] != r["input"] or b["label"] != r["label"]:
+            raise SystemExit(f"saved baseline prediction {i} belongs to a different example")
+        s_b = ev.triage_field_accuracy(b["baseline_b_pred"], r["label"])
+        row.update(baseline_b_pred=b["baseline_b_pred"], baseline_b_score=s_b,
+                   delta=s_ft - s_b,
+                   outcome="win" if s_ft > s_b else "loss" if s_ft < s_b else "tie")
+    rows.append(row)
 rows.sort(key=lambda x: x["ft_score"])
 print("--- 3 ca TỆ NHẤT (bắt buộc đưa vào report) ---")
 print(report.markdown_table(rows[:3], ["i", "ticket", "ft_score", "ft_pred"]))
 print("\n--- 3 ca TỐT NHẤT ---")
 print(report.markdown_table(rows[-3:], ["i", "ticket", "ft_score", "ft_pred"]))
 report.write_json(rows, "qualitative.json", results_dir=ROOT / "results")
+report.write_json(
+    [{"instruction": r["instruction"], "keywords": r["keywords"],
+      "ft_pred": p, "ft_score": ev.keyword_recall(p, r["keywords"])}
+     for r, p in zip(regression, rpreds_ft)],
+    "regression_predictions.json", results_dir=ROOT / "results")
+if baseline_rows is not None:
+    print("Comparison against baseline (b):",
+          {outcome: sum(r["outcome"] == outcome for r in rows)
+           for outcome in ("win", "loss", "tie")})
 
 # %% [markdown]
 # ## ✅ Checkpoint NB5
